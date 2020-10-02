@@ -505,10 +505,9 @@ def setup_experiments(data, eval_test, model_outs, split_idx, normalized_adjs, e
                 test_dict[k] = search_dict[k][study.best_params[k]]
     
         logger = evaluate_params(data, eval_test, model_outs, split_idx, test_dict, fn=fn)
-#         joblib.dump((study.best_trial, logger), f'logs/{name}.pkl')
 
     elif search_type == 'all':
-        # tune on test set; propogate both
+        # tune on test set; propagate both
         search_dict = search_dict_fn(normalized_adjs, idx=('categorical', ['train', 'valid', ['train', 'valid']]), train_only=False)
         search_dict = {**search_dict, **adjust_params}
         study = optuna_search(data, eval_test, model_outs, split_idx, search_dict, n_trials=num_iters, fn=fn, name=name)

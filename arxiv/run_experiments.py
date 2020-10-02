@@ -44,8 +44,8 @@ def main():
         'num_propagations': 50,
         'A': AD,
     }
-    print(eval_test(label_propagation(data, split_idx, **param_dict), split_idx['valid']))
-    print(eval_test(label_propagation(data, split_idx, **param_dict), split_idx['test']))
+    print('Valid acc: ', eval_test(label_propagation(data, split_idx, **param_dict), split_idx['valid']))
+    print('Valid acc: ', eval_test(label_propagation(data, split_idx, **param_dict), split_idx['test']))
     return
     name = f'{args.experiment}_{args.search_type}_{args.model_dir}'
     setup_experiments(data, eval_test, model_outs, split_idx, normalized_adjs, args.experiment, args.search_type, name, num_iters=300)
