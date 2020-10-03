@@ -22,7 +22,6 @@ def main():
     parser.add_argument('--dataset', type=str)
     parser.add_argument('--method', type=str)
     args = parser.parse_args()
-    model_outs = glob.glob(f'models/{args.model_dir}/*.pt')
     
     dataset = PygNodePropPredDataset(name=f'ogbn-{args.dataset}')
     data = dataset[0]
@@ -45,7 +44,7 @@ def main():
         }
     if args.method == 'lp':
         print('Valid acc: ', eval_test(label_propagation(data, split_idx, **param_dict), split_idx['valid']))
-        print('Valid acc: ', eval_test(label_propagation(data, split_idx, **param_dict), split_idx['test']))
+        print('Test acc: ', eval_test(label_propagation(data, split_idx, **param_dict), split_idx['test']))
     return
 #     name = f'{args.experiment}_{args.search_type}_{args.model_dir}'
 #     setup_experiments(data, eval_test, model_outs, split_idx, normalized_adjs, args.experiment, args.search_type, name, num_iters=300)
