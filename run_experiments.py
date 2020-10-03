@@ -35,17 +35,27 @@ def main():
   
     def eval_test(result, idx=split_idx['test']):
         return evaluator.eval({'y_true': data.y[idx],'y_pred': result[idx].argmax(dim=-1, keepdim=True),})['acc']
+    
     if args.dataset == 'arxiv':
-        param_dict = {
+        lp_dict = {
             'idxs': ['train'],
             'alpha': 0.9,
             'num_propagations': 50,
             'A': AD,
         }
+    elif args.dataset == 'products':
+        lp_dict = {
+            'idxs': ['train'],
+            'alpha': 0.5,
+            'num_propagations': 50,
+            'A': DAD,
+        }
+
     if args.method == 'lp':
-        print('Valid acc: ', eval_test(label_propagation(data, split_idx, **param_dict), split_idx['valid']))
-        print('Test acc: ', eval_test(label_propagation(data, split_idx, **param_dict), split_idx['test']))
-    return
+        print('Valid acc: ', eval_test(label_propagation(data, split_idx, **lp_dict), split_idx['valid']))
+        test_acc = eval_test(label_propagation(data, split_idx, **lp_dict), split_idx['test'])
+        print('Test acc:', test_acc)
+        
 #     name = f'{args.experiment}_{args.search_type}_{args.model_dir}'
 #     setup_experiments(data, eval_test, model_outs, split_idx, normalized_adjs, args.experiment, args.search_type, name, num_iters=300)
     
