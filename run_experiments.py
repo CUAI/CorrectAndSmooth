@@ -43,6 +43,18 @@ def main():
             'num_propagations': 50,
             'A': AD,
         }
+        plain_dict = {
+            'train_only': True,
+            'alpha1': 0.87,
+            'A1': AD,
+            'num_propagations1': 50,
+            'alpha2': 0.81,
+            'A2': DAD,
+            'num_propagations2': 50,
+            'display': False,
+        }
+        plain_fn = double_correlation_autoscale
+        
     elif args.dataset == 'products':
         lp_dict = {
             'idxs': ['train'],
@@ -51,10 +63,17 @@ def main():
             'A': DAD,
         }
 
+    
     if args.method == 'lp':
-        print('Valid acc: ', eval_test(label_propagation(data, split_idx, **lp_dict), split_idx['valid']))
-        test_acc = eval_test(label_propagation(data, split_idx, **lp_dict), split_idx['test'])
-        print('Test acc:', test_acc)
+        out = label_propagation(data, split_idx, **lp_dict)
+        print('Valid acc: ', eval_test(out, split_idx['valid']))
+        print('Test acc:', eval_test(out, split_idx['test']))
+    elif args.method == 'plain':
+        model_outs = glob.glob(f'models/{args.dataset}_{args.method}/*.pt')
+        evaluate_params(data, eval_test, model_outs, split_idx, plain_dict, fn = plain_fn)
+
+        
+        
         
 #     name = f'{args.experiment}_{args.search_type}_{args.model_dir}'
 #     setup_experiments(data, eval_test, model_outs, split_idx, normalized_adjs, args.experiment, args.search_type, name, num_iters=300)

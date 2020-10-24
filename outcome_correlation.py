@@ -202,13 +202,14 @@ def get_autoscale_search_dict(normalized_adjs, idx, train_only):
     }
     return search_dict
 
-def double_correlation_autoscale(data, model_out, split_idx, residual_idx, A1, alpha1, num_propagations1, A2, alpha2, num_propagations2, thresh, scale=1.0, train_only=False, device='cuda', display=True):
+def double_correlation_autoscale(data, model_out, split_idx, A1, alpha1, num_propagations1, A2, alpha2, num_propagations2, scale=1.0, train_only=False, device='cuda', display=True):
     train_idx, valid_idx, test_idx = split_idx
     if train_only:
         label_idx = torch.cat([split_idx['train']])
+        residual_idx = split_idx['train']
     else:
         label_idx = torch.cat([split_idx['train'], split_idx['valid']])
-    residual_idx = get_labels_from_name(residual_idx, split_idx)
+        residual_idx = label_idx
 
         
     y = pre_residual_correlation(labels=data.y.data, model_out=model_out, label_idx=residual_idx)
@@ -221,7 +222,7 @@ def double_correlation_autoscale(data, model_out, split_idx, residual_idx, A1, a
     resid_scale[cur_idxs] = 1.0
     res_result = model_out + resid_scale*resid
     res_result[res_result.isnan()] = model_out[res_result.isnan()]
-    y = pre_outcome_correlation(labels=data.y.data, model_out=res_result, label_idx = label_idx, thresh=thresh)
+    y = pre_outcome_correlation(labels=data.y.data, model_out=res_result, label_idx = label_idx, thresh=0)
     result = general_outcome_correlation(adj=A2, y=y, alpha=alpha2, num_propagations=num_propagations2, post_step=lambda x: torch.clamp(x, 0,1), alpha_term=True, display=display, device=device)
     
     return res_result, result
@@ -288,15 +289,16 @@ def only_outcome_correlation(data, model_out, split_idx, A2, alpha2, num_propaga
     
 def evaluate_params(data, eval_test, model_outs, split_idx, params, fn=double_correlation_autoscale):
     logger = SimpleLogger('evaluate params', [], 2)
+
     for out in model_outs:
         model_out, run = model_load(out)
         if isinstance(model_out, tuple):
             model_out, t = model_out
             split_idx = t
         res_result, result = fn(data, model_out, split_idx, **params)
-        resid_acc, test_acc = eval_test(res_result, split_idx['test']), eval_test(result, split_idx['test'])
-        print(resid_acc, test_acc)
-        logger.add_result(run, (), (resid_acc, test_acc))
+        valid_acc, test_acc = eval_test(result, split_idx['valid']), eval_test(result, split_idx['test'])
+        logger.add_result(run, (), (valid_acc, test_acc))
+    print('Valid acc -> Test acc')
     logger.display()
     return logger
         
