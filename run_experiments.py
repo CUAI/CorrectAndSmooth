@@ -55,6 +55,41 @@ def main():
         }
         plain_fn = double_correlation_autoscale
         
+        """
+        If you tune hyperparameters on test set
+        {'alpha1': 0.9988673963255859, 'alpha2': 0.7942279952481052, 'A1': 'DA', 'A2': 'AD'} 
+        gets you to 72.64
+        """
+        linear_dict = {
+            'train_only': True,
+            'alpha1': 0.98, 
+            'alpha2': 0.65, 
+            'A1': AD, 
+            'A2': DAD,
+            'num_propagations1': 50,
+            'num_propagations2': 50,
+            'display': False,
+        }
+        linear_fn = double_correlation_autoscale
+        
+        """
+        If you tune hyperparameters on test set
+        {'alpha1': 0.9956668128133523, 'alpha2': 0.8542393515434346, 'A1': 'DA', 'A2': 'AD'}
+        gets you to 73.30
+        """
+        mlp_dict = {
+            'train_only': True,
+            'alpha1': 0.9791632871592579, 
+            'alpha2': 0.7564990804200602, 
+            'A1': DA, 
+            'A2': AD,
+            'num_propagations1': 50,
+            'num_propagations2': 50,
+            'display': False,
+        }
+        mlp_fn = double_correlation_autoscale  
+
+        
     elif args.dataset == 'products':
         lp_dict = {
             'idxs': ['train'],
@@ -71,7 +106,12 @@ def main():
     elif args.method == 'plain':
         model_outs = glob.glob(f'models/{args.dataset}_{args.method}/*.pt')
         evaluate_params(data, eval_test, model_outs, split_idx, plain_dict, fn = plain_fn)
-
+    elif args.method == 'linear':
+        model_outs = glob.glob(f'models/{args.dataset}_{args.method}/*.pt')
+        evaluate_params(data, eval_test, model_outs, split_idx, linear_dict, fn = linear_fn)
+    elif args.method == 'mlp':
+        model_outs = glob.glob(f'models/{args.dataset}_{args.method}/*.pt')
+        evaluate_params(data, eval_test, model_outs, split_idx, mlp_dict, fn = mlp_fn)
         
         
         

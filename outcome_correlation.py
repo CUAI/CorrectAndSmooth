@@ -143,7 +143,7 @@ def pre_residual_correlation(labels, model_out, label_idx):
     y[label_idx] = F.one_hot(labels[label_idx],c).float().squeeze(1) - model_out[label_idx]
     return y
 
-def pre_outcome_correlation(labels, model_out, label_idx, thresh):
+def pre_outcome_correlation(labels, model_out, label_idx):
     """Generates the initial labels used for outcome correlation"""
 
     labels = labels.cpu()
@@ -151,17 +151,13 @@ def pre_outcome_correlation(labels, model_out, label_idx, thresh):
     label_idx = label_idx.cpu()
     c = labels.max() + 1
     n = labels.shape[0]
-    y = torch.zeros((n, c))
-    model_max = model_out.max(dim=-1)
-    high_conf_test_idxs = (model_max[0]> thresh).nonzero(as_tuple=False)
-    y[high_conf_test_idxs] = model_out[high_conf_test_idxs]
-    
+    y = model_out.clone()
     if len(label_idx) > 0:
         y[label_idx] = F.one_hot(labels[label_idx],c).float().squeeze(1) 
     
     return y
 
-def general_outcome_correlation(adj, y, alpha, num_propagations, post_step, alpha_term, power = 1.0, device='cuda', display=True):
+def general_outcome_correlation(adj, y, alpha, num_propagations, post_step, alpha_term, device='cuda', display=True):
     """general outcome correlation. alpha_term = True for outcome correlation, alpha_term = False for residual correlation"""
     adj = adj.to(device)
     orig_device = y.device
@@ -187,21 +183,6 @@ def label_propagation(data, split_idx, A, alpha, num_propagations, idxs):
 
     return general_outcome_correlation(A, y, alpha, num_propagations, post_step=lambda x:torch.clamp(x,0,1), alpha_term=True)
 
-def get_autoscale_search_dict(normalized_adjs, idx, train_only):
-    DAD, DA, AD = normalized_adjs
-    search_dict = {
-        'residual_idx': idx,
-        'num_propagations1': 50,
-        'num_propagations2': 50,
-        'alpha1': ('uniform', 0.0, 1.0),
-        'alpha2': ('uniform', 0.0, 1.0),
-        'train_only': train_only,
-        'thresh': 0.0,
-        'A1': {'DAD': DAD, 'DA': DA, 'AD': AD},   
-        'A2': {'DAD': DAD, 'DA': DA, 'AD': AD},      
-    }
-    return search_dict
-
 def double_correlation_autoscale(data, model_out, split_idx, A1, alpha1, num_propagations1, A2, alpha2, num_propagations2, scale=1.0, train_only=False, device='cuda', display=True):
     train_idx, valid_idx, test_idx = split_idx
     if train_only:
@@ -222,28 +203,12 @@ def double_correlation_autoscale(data, model_out, split_idx, A1, alpha1, num_pro
     resid_scale[cur_idxs] = 1.0
     res_result = model_out + resid_scale*resid
     res_result[res_result.isnan()] = model_out[res_result.isnan()]
-    y = pre_outcome_correlation(labels=data.y.data, model_out=res_result, label_idx = label_idx, thresh=0)
+    y = pre_outcome_correlation(labels=data.y.data, model_out=res_result, label_idx = label_idx)
     result = general_outcome_correlation(adj=A2, y=y, alpha=alpha2, num_propagations=num_propagations2, post_step=lambda x: torch.clamp(x, 0,1), alpha_term=True, display=display, device=device)
     
     return res_result, result
 
-def get_fixed_search_dict(normalized_adjs, idx, train_only):
-    DAD, DA, AD = normalized_adjs
-    search_dict = {
-        'residual_idx': idx,
-        'num_propagations1': 50,
-        'num_propagations2': 50,
-        'alpha1': 1.0,
-        'alpha2': ('uniform', 0.0, 1.0),
-        'scale': ('uniform', 0.0, 20.0),
-        'train_only': train_only,
-        'thresh': 0.0,
-        'A1': {'DAD': DAD, 'DA': DA, 'AD': AD},   
-        'A2': {'DAD': DAD, 'DA': DA, 'AD': AD},      
-    }
-    return search_dict
-
-def double_correlation_fixed(data, model_out, split_idx, residual_idx, A1, alpha1, num_propagations1, A2, alpha2, num_propagations2, thresh, scale=1.0, train_only=False, device='cuda', display=True):
+def double_correlation_fixed(data, model_out, split_idx, residual_idx, A1, alpha1, num_propagations1, A2, alpha2, num_propagations2, scale=1.0, train_only=False, device='cuda', display=True):
     train_idx, valid_idx, test_idx = split_idx
     if train_only:
         label_idx = torch.cat([split_idx['train']])
@@ -261,7 +226,7 @@ def double_correlation_fixed(data, model_out, split_idx, residual_idx, A1, alpha
     resid = general_outcome_correlation(adj=A1, y=y, alpha=alpha1, num_propagations=num_propagations1, post_step=lambda x: fix_inputs(x), alpha_term=True, display=display, device=device)
     res_result = model_out + scale*resid
     
-    y = pre_outcome_correlation(labels=data.y.data, model_out=res_result, label_idx = label_idx, thresh=thresh)
+    y = pre_outcome_correlation(labels=data.y.data, model_out=res_result, label_idx = label_idx)
 
     result = general_outcome_correlation(adj=A2, y=y, alpha=alpha2, num_propagations=num_propagations2, post_step=lambda x: x.clamp(0, 1), alpha_term=True, display=display, device=device)
     
@@ -274,15 +239,14 @@ def get_only_outcome_search_dict(normalized_adjs, idx, train_only):
         'num_propagations2': 50,
         'alpha2': ('uniform', 0.0, 1.0),
         'label_idxs': [],
-        'thresh': 0.0,
         'A2': {'DAD': DAD, 'DA': DA, 'AD': AD},      
     }
     return search_dict
 
-def only_outcome_correlation(data, model_out, split_idx, A2, alpha2, num_propagations2, thresh, label_idxs, device='cuda', display=True):
+def only_outcome_correlation(data, model_out, split_idx, A2, alpha2, num_propagations2, label_idxs, device='cuda', display=True):
     res_result = model_out.clone()
     label_idxs = get_labels_from_name(label_idxs, split_idx)
-    y = pre_outcome_correlation(labels=data.y.data, model_out=model_out, label_idx=label_idxs, thresh=thresh)
+    y = pre_outcome_correlation(labels=data.y.data, model_out=model_out, label_idx=label_idxs)
     result = general_outcome_correlation(adj=A2, y=y, alpha=alpha2, num_propagations=num_propagations2, post_step=lambda x: torch.clamp(x, 0, 1), alpha_term=True, display=display, device=device)
     return res_result, result
     
@@ -297,6 +261,7 @@ def evaluate_params(data, eval_test, model_outs, split_idx, params, fn=double_co
             split_idx = t
         res_result, result = fn(data, model_out, split_idx, **params)
         valid_acc, test_acc = eval_test(result, split_idx['valid']), eval_test(result, split_idx['test'])
+        print(f"Valid: {valid_acc}, Test: {test_acc}")
         logger.add_result(run, (), (valid_acc, test_acc))
     print('Valid acc -> Test acc')
     logger.display()
@@ -307,96 +272,6 @@ def evaluate_params(data, eval_test, model_outs, split_idx, params, fn=double_co
 def get_run_from_file(out):
     return int(os.path.splitext(os.path.basename(out))[0])
 
-
-
-def get_default_optuna_search_space(train_idx, valid_idx, normalized_adjs):
-    DAD, DA, AD = normalized_adjs
-    search_dict = {
-        'residual_idx': {'valid_idx': valid_idx, 'train_idx': train_idx, 'both': torch.cat([train_idx, valid_idx])},
-        'num_propagations1': ('intlog', 1, 50),
-        'num_propagations2': ('intlog', 1, 50),
-        'alpha1': ('uniform', 0.0, 1.0),
-        'alpha2': ('uniform', 0.0, 1.0),
-        'thresh': ('uniform', 0.0, 1.0),
-        'A1': {'DAD': DAD, 'DA': DA, 'AD': AD},
-        'A2': {'DAD': DAD, 'DA': DA, 'AD': AD},   
-    }
-    
-def optuna_search(data, eval_test, model_outs, split_idx, search_space, n_trials=50, fn=double_correlation_autoscale, name='test', obj_idx='test'):
-    print('Starting optuna search')
-    if not os.path.exists('logs'):
-        os.makedirs('logs')
-    train_idx, valid_idx, test_idx = split_idx
-    fixed_params = {
-        'display': False
-    }
-    search_params = {}
-    mapped_params = {}
-    for k, v in search_space.items():
-        if isinstance(v, tuple):
-            search_params[k] = v
-        elif isinstance(v, dict):
-            search_params[k] = ('dict', list(v.keys()))
-            mapped_params[k] = {a: b for a,b in v.items()}
-        else:
-            fixed_params[k] = v
-    
-    def objective(trial):
-        cur_params = {}
-        for k, v in search_params.items():
-            if v[0] == 'categorical':
-                cur_params[k] = trial.suggest_categorical(k, v[1])
-            elif v[0] == 'dict':
-                cur_params[k] = trial.suggest_categorical(k, v[1])
-                cur_params[k] = mapped_params[k][cur_params[k]]
-            elif v[0] == 'uniform':
-                cur_params[k] = trial.suggest_uniform(k, v[1], v[2])
-            elif v[0] == 'logint':
-                cur_params[k] = trial.suggest_int(k, v[1], v[2], log=True)
-            elif v[0] == 'discreteuniform':
-                cur_params[k] = trial.suggest_discrete_uniform(k, v[1], v[2], v[3])
-            elif v[0] == 'loguniform':
-                cur_params[k] = trial.suggest_loguniform(k, v[1], v[2])
-        
-        total_results = []
-        res_results = []
-        test_results = []
-        nonlocal split_idx
-        for run, out in enumerate(model_outs):
-            model_out, _ = model_load(out)
-            if isinstance(model_out, tuple):
-                model_out, t = model_out
-                split_idx = t
-            res_result, result = fn(data, model_out, split_idx, **fixed_params, **cur_params)
-            
-            total_results.append(eval_test(result, split_idx[obj_idx]))
-            trial.report(np.mean(total_results), step=run)
-            if trial.should_prune():
-                raise optuna.TrialPruned()
-            res_results.append(eval_test(res_result, split_idx[obj_idx]))
-            if obj_idx != 'test':
-                test_results.append((eval_test(res_result, split_idx['test']), eval_test(result, split_idx['test'])))
-        trial.set_user_attr('residual accuracy', np.mean(res_results))
-        if obj_idx != 'test':
-            trial.set_user_attr('test_acc', np.mean(test_results, axis=0))
-        print(f'Residual: {np.mean(res_results)}')
-        if obj_idx != 'test':
-            print(f'Test: {np.mean(test_results, axis=0)}')
-        return np.mean(total_results)
-    
-    def save_best_trial(study, trial):
-        pass
-#         joblib.dump(study.best_trial, f'logs/{name}.pkl')
-
-    study = optuna.create_study(direction='maximize', pruner=optuna.pruners.HyperbandPruner()) 
-    study.optimize(objective, n_trials=n_trials, callbacks=[save_best_trial])
-    best_study = study
-
-    print(best_study.best_trial)
-    print(best_study.best_trial.user_attrs)
-    print(best_study.best_value)
-    print(best_study.best_params)
-    return best_study
 
 def get_orig_acc(data, eval_test, model_outs, split_idx):
     logger_orig = Logger(len(model_outs))
@@ -410,132 +285,6 @@ def get_orig_acc(data, eval_test, model_outs, split_idx):
     print('Original accuracy')
     logger_orig.print_statistics()
     
-def setup_experiments(data, eval_test, model_outs, split_idx, normalized_adjs, experiment, search_type, name, num_iters=1000):
-    if not os.path.exists('logs'):
-        os.makedirs('logs')
-    assert len(model_outs) > 0, "No model outs found"
-    DAD, DA, AD = normalized_adjs
-
-    get_orig_acc(data, eval_test, model_outs, split_idx)
-    if experiment == 'origacc':
-        return
-    if experiment == 'fixed':
-        adjust_params = {
-            'scale': 1.0,
-            'A1': DA,
-        }
-        default_params = {
-            'alpha2': 0.8,
-            'A2': DAD
-        }
-        search_dict_fn = get_fixed_search_dict
-        fn = double_correlation_fixed
-    elif experiment == 'fixedscale':
-        adjust_params = {
-        }
-        default_params = {
-            'alpha2': 0.9,
-            'A1': DA,
-            'A2': DAD,
-            'scale': 5
-        }
-        search_dict_fn = get_fixed_search_dict
-        fn = double_correlation_fixed
-    elif experiment == 'fixedautoscale':
-        adjust_params = {
-            'scale': 1.0,
-            'A1': DA
-        }
-        default_params = {
-            'alpha2': 0.8,
-            'A1': DA,
-            'A2': DAD,
-        }
-        search_dict_fn = get_fixed_autoscale_search_dict
-        fn = double_correlation_fixed_autoscale
-    elif experiment == 'autoscale':
-        adjust_params = {
-            'scale': 1.0
-        }
-        default_params = {
-            'alpha1': 0.95,
-            'alpha2': 0.8,
-            'A1': DAD,
-            'A2': DAD,
-        }
-        search_dict_fn = get_autoscale_search_dict
-        fn = double_correlation_autoscale
-    elif experiment == 'nolabels':
-        adjust_params = {
-        }
-        default_params = {
-            'alpha2': 0.8,
-            'A2': DAD,
-        }
-        search_dict_fn = get_only_outcome_search_dict
-        fn = only_outcome_correlation
-
-    
-    if search_type == 'train':
-        # tune on test set; propagate only train
-        search_dict = search_dict_fn(normalized_adjs, idx=['train'], train_only=True)
-        search_dict = {**search_dict, **adjust_params}
-
-        study = optuna_search(data, eval_test, model_outs, split_idx, search_dict, n_trials=num_iters, fn=fn, name=name)
-        
-        test_dict = search_dict
-        for k, v in test_dict.items():
-            if isinstance(v, tuple):
-                test_dict[k] = study.best_params[k]
-            elif isinstance(v, dict):
-                test_dict[k] = search_dict[k][study.best_params[k]]
-        logger = evaluate_params(data, eval_test, model_outs, split_idx, test_dict, fn=fn)
-    elif search_type == 'validtune':
-        # tune on valid set; propagate only train
-        search_dict = search_dict_fn(normalized_adjs, idx=['train'], train_only=True)
-        search_dict = {**search_dict, **adjust_params}
-        study = optuna_search(data, eval_test, model_outs, split_idx, search_dict, n_trials=num_iters, fn=fn, name=name, obj_idx='valid')
-        
-        test_dict = search_dict
-        test_dict["residual_idx"] =  ['train', 'valid']
-        test_dict['train_only'] = False
-
-        for k, v in test_dict.items():
-            if isinstance(v, tuple):
-                test_dict[k] = study.best_params[k]
-            elif isinstance(v, dict):
-                test_dict[k] = search_dict[k][study.best_params[k]]
-    
-        logger = evaluate_params(data, eval_test, model_outs, split_idx, test_dict, fn=fn)
-
-    elif search_type == 'all':
-        # tune on test set; propagate both
-        search_dict = search_dict_fn(normalized_adjs, idx=('categorical', ['train', 'valid', ['train', 'valid']]), train_only=False)
-        search_dict = {**search_dict, **adjust_params}
-        study = optuna_search(data, eval_test, model_outs, split_idx, search_dict, n_trials=num_iters, fn=fn, name=name)
-        test_dict = search_dict
-        
-        for k, v in test_dict.items():
-            if isinstance(v, tuple):
-                test_dict[k] = study.best_params[k]
-            elif isinstance(v, dict):
-                test_dict[k] = search_dict[k][study.best_params[k]]
-        logger = evaluate_params(data, eval_test, model_outs, split_idx, test_dict, fn=fn)
-    elif search_type in ['none', 'nonetrain']:
-        # no tuning
-        if search_type == 'none':
-            idxs = ['train', 'valid']
-            train_only = False
-        elif search_type == 'nonetrain':
-            idxs = ['train']
-            train_only = True
-        if experiment != 'nolabels':
-            search_dict = search_dict_fn(normalized_adjs, idx=idxs, train_only=train_only)
-        
-        logger = evaluate_params(data, eval_test, model_outs, split_idx, {**search_dict, **adjust_params, **default_params}, fn =fn)  
-#         joblib.dump(logger, f'logs/{name}.pkl')
-    print('successfully finished job')
-
 def prepare_folder(name, model):
     model_dir = f'models/{name}'
    

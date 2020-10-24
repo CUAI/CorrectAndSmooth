@@ -16,6 +16,7 @@ import numpy as np
 
 from ogb.nodeproppred import PygNodePropPredDataset, Evaluator
 from outcome_correlation import prepare_folder
+from diffusion_feature import preprocess
 import glob
 import os
 import shutil
@@ -130,13 +131,6 @@ def main():
     data = data.to(device)
     
     x = data.x
-    
-    if args.use_node_embedding:
-        embedding = preprocess(Planetoid(root='.', name=dataset_name)[0], 'sgc', post_fix=dataset_name)
-
-        embedding = torch.load('embedding.pt', map_location=device)
-        diffusion = torch.load('diffusion.pt', map_location=device)
-        x = torch.cat([x, embedding, diffusion], dim=-1)
 
 
     x = x.to(device)
@@ -149,13 +143,21 @@ def main():
     test_idx = split_idx['test'].to(device)
 
     if args.model == 'mlp':
+        preprocess_data = PygNodePropPredDataset(name=f'ogbn-{args.dataset}')[0]
+        if args.dataset == 'arxiv':
+            x = torch.cat([x, preprocess(preprocess_data, 'diffusion', post_fix=args.dataset).to(device)], dim=-1)
+        x = torch.cat([x, preprocess(preprocess_data, 'spectral', post_fix=args.dataset).to(device)], dim=-1)
+        x = (x-x.mean(0))/x.std(0)
+        
         model = MLP(x.size(-1),256, dataset.num_classes, 3, 0.5).cuda()
     elif args.model=='linear':
-        if dataset == 'arxiv':
-            x = torch.cat([x, preprocess(data, 'diffusion')])
-        x = torch.cat([x, preprocess(data, 'spectral', post_fix=dataset_name)])
-        model = MLPLinear(x.size(-1), 256, dataset.num_classes).cuda()
+        preprocess_data = PygNodePropPredDataset(name=f'ogbn-{args.dataset}')[0]
+        if args.dataset == 'arxiv':
+            x = torch.cat([x, preprocess(preprocess_data, 'diffusion', post_fix=args.dataset).to(device)], dim=-1)
+        x = torch.cat([x, preprocess(preprocess_data, 'spectral', post_fix=args.dataset).to(device)], dim=-1)
+        x = (x-x.mean(0))/x.std(0)
         
+        model = MLPLinear(x.size(-1), 256, dataset.num_classes).cuda()
     elif args.model=='plain':
         model = MLPLinear(x.size(-1), 256, dataset.num_classes).cuda()
 

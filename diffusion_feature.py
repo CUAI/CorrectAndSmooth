@@ -86,6 +86,7 @@ def spectral(data, post_fix):
     from julia import Main
     Main.include("./norm_spec.jl")
     print('Setting up spectral embedding')
+    data.edge_index = to_undirected(data.edge_index)
     np_edge_index = np.array(data.edge_index.T)
 
     
