@@ -75,7 +75,7 @@ def main():
         """
         If you tune hyperparameters on test set
         {'alpha1': 0.9956668128133523, 'alpha2': 0.8542393515434346, 'A1': 'DA', 'A2': 'AD'}
-        gets you to 73.30
+        gets you to 73.35
         """
         mlp_dict = {
             'train_only': True,
@@ -88,6 +88,15 @@ def main():
             'display': False,
         }
         mlp_fn = double_correlation_autoscale  
+        
+        gat_dict = {
+            'labels': ['train'],
+            'alpha': 0.8, 
+            'A': DAD,
+            'num_propagations': 50,
+            'display': False,
+        }
+        gat_fn = only_outcome_correlation
 
         
     elif args.dataset == 'products':
@@ -97,23 +106,67 @@ def main():
             'num_propagations': 50,
             'A': DAD,
         }
+        
+        plain_dict = {
+            'train_only': True,
+            'alpha1': 1.0,
+            'alpha2': 0.9, 
+            'scale': 20.0, 
+            'A1': DAD, 
+            'A2': DAD,
+            'num_propagations1': 50,
+            'num_propagations2': 50,
+        }
+        plain_fn = double_correlation_fixed
+        linear_dict = {
+            'train_only': True,
+            'alpha1': 1.0,
+            'alpha2': 0.9, 
+            'scale': 25.0, 
+            'A1': DAD, 
+            'A2': DAD,
+            'num_propagations1': 50,
+            'num_propagations2': 50,
+        }
+        linear_fn = double_correlation_fixed
+        
+        mlp_dict = {
+            'train_only': True,
+            'alpha1': 1.0,
+            'alpha2': 0.8, 
+            'scale': 10.0, 
+            'A1': DAD, 
+            'A2': DA,
+            'num_propagations1': 50,
+            'num_propagations2': 50,
+        }
+        # {'alpha2': 0.8350445782904874, 'scale': 10.38361710857806, 'A1': 'DAD', 'A2': 'DA'}
 
+        mlp_fn = double_correlation_fixed
+
+
+
+
+    model_outs = glob.glob(f'models/{args.dataset}_{args.method}/*.pt')
     
     if args.method == 'lp':
         out = label_propagation(data, split_idx, **lp_dict)
         print('Valid acc: ', eval_test(out, split_idx['valid']))
         print('Test acc:', eval_test(out, split_idx['test']))
-    elif args.method == 'plain':
-        model_outs = glob.glob(f'models/{args.dataset}_{args.method}/*.pt')
-        evaluate_params(data, eval_test, model_outs, split_idx, plain_dict, fn = plain_fn)
-    elif args.method == 'linear':
-        model_outs = glob.glob(f'models/{args.dataset}_{args.method}/*.pt')
-        evaluate_params(data, eval_test, model_outs, split_idx, linear_dict, fn = linear_fn)
-    elif args.method == 'mlp':
-        model_outs = glob.glob(f'models/{args.dataset}_{args.method}/*.pt')
-        evaluate_params(data, eval_test, model_outs, split_idx, mlp_dict, fn = mlp_fn)
-        
-        
+        return
+    
+    get_orig_acc(data, eval_test, model_outs, split_idx)
+    while True:
+        if args.method == 'plain':
+            evaluate_params(data, eval_test, model_outs, split_idx, plain_dict, fn = plain_fn)
+        elif args.method == 'linear':
+            evaluate_params(data, eval_test, model_outs, split_idx, linear_dict, fn = linear_fn)
+        elif args.method == 'mlp':
+            evaluate_params(data, eval_test, model_outs, split_idx, mlp_dict, fn = mlp_fn)
+        elif args.method == 'gat':
+            evaluate_params(data, eval_test, model_outs, split_idx, gat_dict, fn = gat_fn) 
+#         import pdb; pdb.set_trace()
+        break
         
 #     name = f'{args.experiment}_{args.search_type}_{args.model_dir}'
 #     setup_experiments(data, eval_test, model_outs, split_idx, normalized_adjs, args.experiment, args.search_type, name, num_iters=300)

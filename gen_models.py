@@ -44,33 +44,36 @@ class MLP(torch.nn.Module):
         for bn in self.bns:
             bn.reset_parameters()
 
-    def forward(self, x, adj_t):    
+    def forward(self, x):    
         for i, lin in enumerate(self.lins[:-1]):
             x = lin(x)
+            x = F.relu(x, inplace=True)
+
             x = self.bns[i](x)
-            x = F.relu(x)
             x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.lins[-1](x)
         return F.log_softmax(x, dim=-1)
+    
+    
 
 class MLPLinear(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels):
+    def __init__(self, in_channels, out_channels):
         super(MLPLinear, self).__init__()
         self.lin = torch.nn.Linear(in_channels, out_channels)
 
     def reset_parameters(self):
         self.lin.reset_parameters()
 
-    def forward(self, x, adj_t):
+    def forward(self, x):
         return F.log_softmax(self.lin(x), dim=-1)
 
     
-def train(model, data, train_idx, optimizer):
+def train(model, x, y_true, train_idx, optimizer):
     model.train()
 
     optimizer.zero_grad()
-    out = model(data.x, data.adj_t)[train_idx]
-    loss = F.nll_loss(out, data.y.squeeze(1)[train_idx])
+    out = model(x[train_idx])
+    loss = F.nll_loss(out, y_true.squeeze(1)[train_idx])
     loss.backward()
     optimizer.step()
 
@@ -78,10 +81,10 @@ def train(model, data, train_idx, optimizer):
 
 
 @torch.no_grad()
-def test(model, x, y, adj, split_idx, evaluator):
+def test(model, x, y, split_idx, evaluator):
     model.eval()
 
-    out = model(x, adj)
+    out = model(x)
     y_pred = out.argmax(dim=-1, keepdim=True)
 
     train_acc = evaluator.eval({
@@ -97,7 +100,7 @@ def test(model, x, y, adj, split_idx, evaluator):
         'y_pred': y_pred[split_idx['test']],
     })['acc']
 
-    return train_acc, valid_acc, test_acc
+    return (train_acc, valid_acc, test_acc), out
 
     
         
@@ -108,14 +111,15 @@ def main():
     parser.add_argument('--dataset', type=str, default='arxiv')
     parser.add_argument('--log_steps', type=int, default=1)
     parser.add_argument('--model', type=str, default='mlp')
-    parser.add_argument('--num_layers', type=int, default=2)
+    parser.add_argument('--num_layers', type=int, default=3)
     parser.add_argument('--hidden_channels', type=int, default=256)
-    parser.add_argument('--use_node_embedding', action='store_true')
+    parser.add_argument('--use_spectral_embedding', action='store_true')
+    parser.add_argument('--use_diffusion_embedding', action='store_true')
+    parser.add_argument('--no_norm', action='store_true')
     parser.add_argument('--dropout', type=float, default=0.5)
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--epochs', type=int, default=250)
     parser.add_argument('--runs', type=int, default=10)
-    parser.add_argument('--model_dir', type=str)
 
     args = parser.parse_args()
     print(args)
@@ -128,38 +132,29 @@ def main():
     
     data = dataset[0]
     data.adj_t = data.adj_t.to_symmetric()
-    data = data.to(device)
     
     x = data.x
 
-
-    x = x.to(device)
-    adj_t = data.adj_t.to(device)
-    y_true = data.y.to(device)
     
     split_idx = dataset.get_idx_split()
-    train_idx = split_idx['train'].to(device)
-    valid_idx = split_idx['valid'].to(device)
-    test_idx = split_idx['test'].to(device)
+    preprocess_data = PygNodePropPredDataset(name=f'ogbn-{args.dataset}')[0]
+    if args.use_diffusion_embedding:
+        x = torch.cat([x, preprocess(preprocess_data, 'diffusion', post_fix=args.dataset)], dim=-1)
+    if args.use_spectral_embedding:
+        x = torch.cat([x, preprocess(preprocess_data, 'spectral', post_fix=args.dataset)], dim=-1)
+    if not args.no_norm:
+        x = (x-x.mean(0))/x.std(0)
 
-    if args.model == 'mlp':
-        preprocess_data = PygNodePropPredDataset(name=f'ogbn-{args.dataset}')[0]
-        if args.dataset == 'arxiv':
-            x = torch.cat([x, preprocess(preprocess_data, 'diffusion', post_fix=args.dataset).to(device)], dim=-1)
-        x = torch.cat([x, preprocess(preprocess_data, 'spectral', post_fix=args.dataset).to(device)], dim=-1)
-        x = (x-x.mean(0))/x.std(0)
-        
-        model = MLP(x.size(-1),256, dataset.num_classes, 3, 0.5).cuda()
+    if args.model == 'mlp':        
+        model = MLP(x.size(-1),args.hidden_channels, dataset.num_classes, args.num_layers, 0.5).cuda()
     elif args.model=='linear':
-        preprocess_data = PygNodePropPredDataset(name=f'ogbn-{args.dataset}')[0]
-        if args.dataset == 'arxiv':
-            x = torch.cat([x, preprocess(preprocess_data, 'diffusion', post_fix=args.dataset).to(device)], dim=-1)
-        x = torch.cat([x, preprocess(preprocess_data, 'spectral', post_fix=args.dataset).to(device)], dim=-1)
-        x = (x-x.mean(0))/x.std(0)
-        
-        model = MLPLinear(x.size(-1), 256, dataset.num_classes).cuda()
+        model = MLPLinear(x.size(-1), dataset.num_classes).cuda()
     elif args.model=='plain':
-        model = MLPLinear(x.size(-1), 256, dataset.num_classes).cuda()
+        model = MLPLinear(x.size(-1), dataset.num_classes).cuda()
+
+    x = x.to(device)
+    y_true = data.y.to(device)
+    train_idx = split_idx['train'].to(device)
 
     
     model_dir = prepare_folder(f'{args.dataset}_{args.model}', model)
@@ -169,23 +164,20 @@ def main():
     logger = Logger(args.runs, args)
     
     for run in range(args.runs):
+        import gc
+        gc.collect()
         print(sum(p.numel() for p in model.parameters()))
-        
         model.reset_parameters()
         optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
         best_valid = 0
         best_out = None
-        
         for epoch in range(1, args.epochs):
-            model.train()
-            optimizer.zero_grad()
-            out = model(x, adj_t)[train_idx]
-            loss = F.nll_loss(out, y_true.squeeze(1)[train_idx])
-            result = test(model, x, y_true, adj_t, split_idx, evaluator)
+            loss = train(model, x, y_true, train_idx, optimizer)
+            result, out = test(model, x, y_true, split_idx, evaluator)
             train_acc, valid_acc, test_acc = result
             if valid_acc > best_valid:
                 best_valid = valid_acc
-                best_out = model(x, adj_t).detach().exp()
+                best_out = out.cpu().exp()
         
             print(f'Run: {run + 1:02d}, '
                       f'Epoch: {epoch:02d}, '
@@ -194,8 +186,7 @@ def main():
                       f'Valid: {100 * valid_acc:.2f}% '
                       f'Test: {100 * test_acc:.2f}%')
             logger.add_result(run, result)
-            loss.backward()
-            optimizer.step()
+
         logger.print_statistics(run)
         torch.save(best_out, f'{model_dir}/{run}.pt')
 

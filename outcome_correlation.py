@@ -208,13 +208,16 @@ def double_correlation_autoscale(data, model_out, split_idx, A1, alpha1, num_pro
     
     return res_result, result
 
-def double_correlation_fixed(data, model_out, split_idx, residual_idx, A1, alpha1, num_propagations1, A2, alpha2, num_propagations2, scale=1.0, train_only=False, device='cuda', display=True):
+def double_correlation_fixed(data, model_out, split_idx, A1, alpha1, num_propagations1, A2, alpha2, num_propagations2, scale=1.0, train_only=False, device='cuda', display=True):
     train_idx, valid_idx, test_idx = split_idx
     if train_only:
         label_idx = torch.cat([split_idx['train']])
+        residual_idx = split_idx['train']
+
     else:
         label_idx = torch.cat([split_idx['train'], split_idx['valid']])
-    residual_idx = get_labels_from_name(residual_idx, split_idx)
+        residual_idx = label_idx
+
 
     y = pre_residual_correlation(labels=data.y.data, model_out=model_out, label_idx=residual_idx)
     
@@ -233,21 +236,11 @@ def double_correlation_fixed(data, model_out, split_idx, residual_idx, A1, alpha
     return res_result, result
 
 
-def get_only_outcome_search_dict(normalized_adjs, idx, train_only):
-    DAD, DA, AD = normalized_adjs
-    search_dict = {
-        'num_propagations2': 50,
-        'alpha2': ('uniform', 0.0, 1.0),
-        'label_idxs': [],
-        'A2': {'DAD': DAD, 'DA': DA, 'AD': AD},      
-    }
-    return search_dict
-
-def only_outcome_correlation(data, model_out, split_idx, A2, alpha2, num_propagations2, label_idxs, device='cuda', display=True):
+def only_outcome_correlation(data, model_out, split_idx, A, alpha, num_propagations, labels, device='cuda', display=True):
     res_result = model_out.clone()
-    label_idxs = get_labels_from_name(label_idxs, split_idx)
+    label_idxs = get_labels_from_name(labels, split_idx)
     y = pre_outcome_correlation(labels=data.y.data, model_out=model_out, label_idx=label_idxs)
-    result = general_outcome_correlation(adj=A2, y=y, alpha=alpha2, num_propagations=num_propagations2, post_step=lambda x: torch.clamp(x, 0, 1), alpha_term=True, display=display, device=device)
+    result = general_outcome_correlation(adj=A, y=y, alpha=alpha, num_propagations=num_propagations, post_step=lambda x: torch.clamp(x, 0, 1), alpha_term=True, display=display, device=device)
     return res_result, result
     
     
@@ -280,7 +273,6 @@ def get_orig_acc(data, eval_test, model_outs, split_idx):
         if isinstance(model_out, tuple):
             model_out, split_idx = model_out
         test_acc = eval_test(model_out, split_idx['test'])
-        print(run, test_acc)
         logger_orig.add_result(run, (eval_test(model_out, split_idx['train']), eval_test(model_out, split_idx['valid']), test_acc))
     print('Original accuracy')
     logger_orig.print_statistics()
