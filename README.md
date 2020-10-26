@@ -34,16 +34,16 @@ Args []: 73.00 ± 0.01 -> 71.26 ± 0.01
 
 ### Linear C&S (15400 params, 70.11% base accuracy)
 ```
-python gen_models.py --dataset arxiv --model linear --use_spectral_embedding --use_diffusion_embedding --epochs 1000 
+python gen_models.py --dataset arxiv --model linear --use_embeddings --epochs 1000 
 python run_experiments.py --dataset arxiv --method linear
 
 Valid acc -> Test acc
-Args []: 73.68 ± 0.04 -> 72.21 ± 0.02;
+Args []: 73.68 ± 0.04 -> 72.22 ± 0.02;
 ```
 
 ### MLP C&S (175656 params, 71.44% base accuracy)
 ```
-python gen_models.py --dataset arxiv --model mlp --use_spectral_embedding --use_diffusion_embedding
+python gen_models.py --dataset arxiv --model mlp --use_embeddings
 python run_experiments.py --dataset arxiv --method mlp
 
 Valid acc -> Test acc
@@ -80,7 +80,7 @@ Args []: 91.03 ± 0.01 -> 82.43 ± 0.02
 
 ### Linear C&S (10763 params, 47.75% base accuracy)
 ```
-python gen_models.py --dataset products --model linear  --epochs 1000 --no_norm --use_spectral
+python gen_models.py --dataset products --model linear --use_embeddings --epochs 1000 
 python run_experiments.py --dataset products --method linear
 
 Valid acc -> Test acc
@@ -89,9 +89,9 @@ Args []: 90.91 ± 0.00 -> 82.57 ± 0.00
 
 ### MLP C&S (96247 params, 63.41% base accuracy)
 ```
-python gen_models.py --dataset products --model mlp --hidden_channels 200 --use_spectral_embedding --no_norm --epochs 300
-python run_experiments.py --dataset products --method linear
+python gen_models.py --dataset products --model mlp --hidden_channels 200 --use_embeddings
+python run_experiments.py --dataset products --method mlp
 
 Valid acc -> Test acc
-Args []: 91.53 ± 0.08 -> 83.78 ± 0.27
+Args []: 91.47 ± 0.09 -> 84.18 ± 0.07
 ```

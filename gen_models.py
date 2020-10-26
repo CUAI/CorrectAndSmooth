@@ -25,7 +25,7 @@ from logger import Logger
 
 class MLP(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels, num_layers,
-                 dropout):
+                 dropout, relu_first = True):
         super(MLP, self).__init__()
         self.lins = torch.nn.ModuleList()
         self.lins.append(torch.nn.Linear(in_channels, hidden_channels))
@@ -37,6 +37,7 @@ class MLP(torch.nn.Module):
         self.lins.append(torch.nn.Linear(hidden_channels, out_channels))
 
         self.dropout = dropout
+        self.relu_first = relu_first
 
     def reset_parameters(self):
         for lin in self.lins:
@@ -47,9 +48,13 @@ class MLP(torch.nn.Module):
     def forward(self, x):    
         for i, lin in enumerate(self.lins[:-1]):
             x = lin(x)
-            x = F.relu(x, inplace=True)
-
+            if self.relu_first:
+                x = F.relu(x, inplace=True)
             x = self.bns[i](x)
+            if not self.relu_first:
+                x = F.relu(x, inplace=True)
+
+
             x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.lins[-1](x)
         return F.log_softmax(x, dim=-1)
@@ -113,12 +118,10 @@ def main():
     parser.add_argument('--model', type=str, default='mlp')
     parser.add_argument('--num_layers', type=int, default=3)
     parser.add_argument('--hidden_channels', type=int, default=256)
-    parser.add_argument('--use_spectral_embedding', action='store_true')
-    parser.add_argument('--use_diffusion_embedding', action='store_true')
-    parser.add_argument('--no_norm', action='store_true')
+    parser.add_argument('--use_embeddings', action='store_true')
     parser.add_argument('--dropout', type=float, default=0.5)
     parser.add_argument('--lr', type=float, default=0.01)
-    parser.add_argument('--epochs', type=int, default=250)
+    parser.add_argument('--epochs', type=int, default=300)
     parser.add_argument('--runs', type=int, default=10)
 
     args = parser.parse_args()
@@ -138,15 +141,20 @@ def main():
     
     split_idx = dataset.get_idx_split()
     preprocess_data = PygNodePropPredDataset(name=f'ogbn-{args.dataset}')[0]
-    if args.use_diffusion_embedding:
-        x = torch.cat([x, preprocess(preprocess_data, 'diffusion', post_fix=args.dataset)], dim=-1)
-    if args.use_spectral_embedding:
-        x = torch.cat([x, preprocess(preprocess_data, 'spectral', post_fix=args.dataset)], dim=-1)
-    if not args.no_norm:
+    if args.dataset == 'arxiv':
+        embeddings = torch.cat([preprocess(preprocess_data, 'diffusion', post_fix=args.dataset), 
+                                preprocess(preprocess_data, 'spectral', post_fix=args.dataset)], dim=-1)
+    elif args.dataset == 'products':
+        embeddings = preprocess(preprocess_data, 'spectral', post_fix=args.dataset)
+        
+    if args.use_embeddings:
+        x = torch.cat([x, embeddings], dim=-1)
+        
+    if args.dataset == 'arxiv':
         x = (x-x.mean(0))/x.std(0)
 
     if args.model == 'mlp':        
-        model = MLP(x.size(-1),args.hidden_channels, dataset.num_classes, args.num_layers, 0.5).cuda()
+        model = MLP(x.size(-1),args.hidden_channels, dataset.num_classes, args.num_layers, 0.5, args.dataset == 'products').cuda()
     elif args.model=='linear':
         model = MLPLinear(x.size(-1), dataset.num_classes).cuda()
     elif args.model=='plain':

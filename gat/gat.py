@@ -5,6 +5,7 @@ import argparse
 import math
 import time
 import os
+import shutil
 
 import numpy as np
 import torch as th
@@ -284,7 +285,14 @@ def main():
     # run
     val_accs = []
     test_accs = []
-    model_dir = prepare_folder('../models/arxiv_gat', gen_model(args))
+    model_dir = f'../models/arxiv_gat'
+       
+    if os.path.exists(model_dir):
+        shutil.rmtree(model_dir)
+    os.makedirs(model_dir)
+    with open(f'{model_dir}/metadata', 'w') as f:
+        f.write(f'# of params: {sum(p.numel() for p in gen_model(args).parameters())}\n')
+
     for i in range(1, args.n_runs + 1):
         val_acc, test_acc, out = run(args, graph, labels, train_idx, val_idx, test_idx, evaluator, i)
         val_accs.append(val_acc)
