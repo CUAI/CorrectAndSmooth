@@ -297,7 +297,7 @@ def main():
         val_acc, test_acc, out = run(args, graph, labels, train_idx, val_idx, test_idx, evaluator, i)
         val_accs.append(val_acc)
         test_accs.append(test_acc)
-        th.save(F.softmax(out, dim=1), f'{model_dir}/{i}.pt')
+        th.save(F.softmax(out, dim=1), f'{model_dir}/{i-1}.pt')
 
     print(f"Runned {args.n_runs} times")
     print("Val Accs:", val_accs)

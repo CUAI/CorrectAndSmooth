@@ -59,6 +59,9 @@ Valid acc -> Test acc
 Args []: 74.84 ± 0.07 -> 73.86 ± 0.14
 ```
 
+### Notes
+As opposed to the paper's results, which only use spectral embeddings, here we use spectral *and* diffusion embeddings, which we find improves Arxiv performance.
+
 ## Products
 
 ### Label Propagation (0 params):
@@ -69,22 +72,22 @@ Valid acc:  0.9090608549703736
 Test acc: 0.7434145274640762
 ```
 
-### Plain Linear C&S (4747 params, 47.11% base accuracy)
+### Plain Linear C&S (4747 params, 47.73% base accuracy)
 ```
-python gen_models.py --dataset products --model plain  --epochs 1000 
+python gen_models.py --dataset products --model plain --epochs 1000 --lr 0.1
 python run_experiments.py --dataset products --method plain
 
 Valid acc -> Test acc
-Args []: 91.03 ± 0.01 -> 82.43 ± 0.02
+Args []: 91.03 ± 0.01 -> 82.54 ± 0.03
 ```
 
-### Linear C&S (10763 params, 47.75% base accuracy)
+### Linear C&S (10763 params, 50.05% base accuracy)
 ```
-python gen_models.py --dataset products --model linear --use_embeddings --epochs 1000 
+python gen_models.py --dataset products --model linear --use_embeddings --epochs 1000 --lr 0.1
 python run_experiments.py --dataset products --method linear
 
 Valid acc -> Test acc
-Args []: 90.91 ± 0.00 -> 82.57 ± 0.00
+Args []: 91.34 ± 0.01 -> 83.01 ± 0.01
 ```
 
 ### MLP C&S (96247 params, 63.41% base accuracy)

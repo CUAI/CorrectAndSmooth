@@ -118,11 +118,12 @@ def main():
             'num_propagations2': 50,
         }
         plain_fn = double_correlation_fixed
+        
         linear_dict = {
             'train_only': True,
             'alpha1': 1.0,
             'alpha2': 0.9, 
-            'scale': 25.0, 
+            'scale': 20.0, 
             'A1': DAD, 
             'A2': DAD,
             'num_propagations1': 50,
@@ -140,8 +141,6 @@ def main():
             'num_propagations1': 50,
             'num_propagations2': 50,
         }
-        # {'alpha2': 0.8350445782904874, 'scale': 10.38361710857806, 'A1': 'DAD', 'A2': 'DA'}
-
         mlp_fn = double_correlation_fixed
 
 
