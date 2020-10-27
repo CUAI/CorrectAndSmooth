@@ -1,6 +1,6 @@
 # Correct and Smooth (C&S) OGB submissions
 
-This directory contains OGB submissions. All hyperparameters were tuned on the validation set with optuna, except for products, which was hand tuned.
+This directory contains OGB submissions. All hyperparameters were tuned on the validation set with optuna, except for products, which was hand tuned. All experiments were run with a RTX 2080 TI with 11GB.
 
 ## Some Tips 
 - In general, the more complex and "smooth" your GNN is, the less likely it'll be that applying the "Correct" portion helps performance. In those cases, you may consider just applying the "smooth" portion, like we do on the GAT. In almost all cases, applying the "smoothing" component will improve performance. For Linear/MLP models, applying the "Correct" portion is almost always essential for obtaining good performance.
