@@ -25,7 +25,7 @@ Valid acc: 0.7013658176448874
 Test acc: 0.6832294302820814
 ```
 
-### Plain Linear C&S (5160 params, 52.5% base accuracy)
+### Plain Linear + C&S (5160 params, 52.5% base accuracy)
 ```
 python gen_models.py --dataset arxiv --model plain --epochs 1000    
 python run_experiments.py --dataset arxiv --method plain
@@ -34,7 +34,7 @@ Valid acc -> Test acc
 Args []: 73.00 ± 0.01 -> 71.26 ± 0.01
 ```
 
-### Linear C&S (15400 params, 70.11% base accuracy)
+### Linear + C&S (15400 params, 70.11% base accuracy)
 ```
 python gen_models.py --dataset arxiv --model linear --use_embeddings --epochs 1000 
 python run_experiments.py --dataset arxiv --method linear
@@ -43,7 +43,7 @@ Valid acc -> Test acc
 Args []: 73.68 ± 0.04 -> 72.22 ± 0.02;
 ```
 
-### MLP C&S (175656 params, 71.44% base accuracy)
+### MLP + C&S (175656 params, 71.44% base accuracy)
 ```
 python gen_models.py --dataset arxiv --model mlp --use_embeddings
 python run_experiments.py --dataset arxiv --method mlp
@@ -52,7 +52,7 @@ Valid acc -> Test acc
 Args []: 73.91 ± 0.15 -> 73.12 ± 0.12
 ```
 
-### GAT C&S (1567000 params, 73.56% base accuracy)
+### GAT + C&S (1567000 params, 73.56% base accuracy)
 ```
 cd gat && python gat.py --use-norm
 cd .. && python run_experiments.py --dataset arxiv --method gat
@@ -74,7 +74,7 @@ Valid acc:  0.9090608549703736
 Test acc: 0.7434145274640762
 ```
 
-### Plain Linear C&S (4747 params, 47.73% base accuracy)
+### Plain Linear + C&S (4747 params, 47.73% base accuracy)
 ```
 python gen_models.py --dataset products --model plain --epochs 1000 --lr 0.1
 python run_experiments.py --dataset products --method plain
@@ -83,7 +83,7 @@ Valid acc -> Test acc
 Args []: 91.03 ± 0.01 -> 82.54 ± 0.03
 ```
 
-### Linear C&S (10763 params, 50.05% base accuracy)
+### Linear + C&S (10763 params, 50.05% base accuracy)
 ```
 python gen_models.py --dataset products --model linear --use_embeddings --epochs 1000 --lr 0.1
 python run_experiments.py --dataset products --method linear
@@ -92,7 +92,7 @@ Valid acc -> Test acc
 Args []: 91.34 ± 0.01 -> 83.01 ± 0.01
 ```
 
-### MLP C&S (96247 params, 63.41% base accuracy)
+### MLP + C&S (96247 params, 63.41% base accuracy)
 ```
 python gen_models.py --dataset products --model mlp --hidden_channels 200 --use_embeddings
 python run_experiments.py --dataset products --method mlp
