@@ -11,7 +11,7 @@ This directory contains OGB submissions. All hyperparameters were tuned on the v
      - Even though GAT (73.57) is outperformed by GAT + labels (73.65), when we apply C&S, we see that GAT + C&S (73.86) performs better than GAT + labels + C&S (~73.70) , 
      - Even though a 6 layer GCN performs on par with a 2 layer GCN with Node2Vec features, C&S improves performance of the 2 layer GCN with Node2Vec features substantially more.
      - Even though MLP + Node2Vec outperforms MLP + Spectral in both arxiv and products, the performance ordering flips after we apply C&S.
-     - On Products, the MLP (74%) is substantially outperformed by ClusterGCN (80%). However, MLP + C&S (83.7%) substantially outperforms ClusterGCN + C&S (82.4%).
+     - On Products, the MLP (74%) is substantially outperformed by ClusterGCN (80%). However, MLP + C&S (84.1%) substantially outperforms ClusterGCN + C&S (82.4%).
 
 - In general, autoscale works more reliably than fixedscale, even though fixedscale may make more sense...
 
