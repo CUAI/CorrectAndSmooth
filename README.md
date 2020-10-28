@@ -1,6 +1,6 @@
 # Correct and Smooth (C&S) OGB submissions
 
-Paper: <insert link>
+Paper: https://arxiv.org/abs/2010.13993
 
 This directory contains OGB submissions. All hyperparameters were tuned on the validation set with optuna, except for products, which was hand tuned. All experiments were run with a RTX 2080 TI with 11GB.
 
