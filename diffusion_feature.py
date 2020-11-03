@@ -11,7 +11,6 @@ import numpy as np
 from scipy import sparse
 from torch_scatter import scatter
 
-import networkx as nx
 import h5py
 import os
 
