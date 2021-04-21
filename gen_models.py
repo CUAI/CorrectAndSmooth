@@ -154,11 +154,11 @@ def main():
         x = (x-x.mean(0))/x.std(0)
 
     if args.model == 'mlp':        
-        model = MLP(x.size(-1),args.hidden_channels, dataset.num_classes, args.num_layers, 0.5, args.dataset == 'products').cuda()
+        model = MLP(x.size(-1),args.hidden_channels, dataset.num_classes, args.num_layers, 0.5, args.dataset == 'products').to(device)
     elif args.model=='linear':
-        model = MLPLinear(x.size(-1), dataset.num_classes).cuda()
+        model = MLPLinear(x.size(-1), dataset.num_classes).to(device)
     elif args.model=='plain':
-        model = MLPLinear(x.size(-1), dataset.num_classes).cuda()
+        model = MLPLinear(x.size(-1), dataset.num_classes).to(device)
 
     x = x.to(device)
     y_true = data.y.to(device)
